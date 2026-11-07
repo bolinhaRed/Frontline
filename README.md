@@ -2,6 +2,8 @@
 
 RTS em pixel art com mapa hexagonal. HTML, CSS e JavaScript puros, sem dependências.
 
+https://bolinhared.github.io/Frontline/
+
 ## Como abrir
 
 - **GitHub Pages:** publica a pasta tal como está; abre `index.html`. Na primeira visita o jogo fica guardado no telemóvel e passa a funcionar sem internet; no Android, "Adicionar ao ecrã principal" instala-o como aplicação (ecrã inteiro, horizontal).
