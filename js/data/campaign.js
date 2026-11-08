@@ -8,6 +8,14 @@ export const SKIRMISH = {
   tech: null, objetivo: { tipo: 'portais' },
 };
 
+// Sobrevivência: vagas sem fim, portais invulneráveis; a pontuação conta vagas, abatidos e tempo
+export const SURVIVAL = {
+  id: 'sobrevivencia', w: 40, h: 30, portais: 2, base: true, unidades: [['assalto', 4]],
+  recursos: { cristal: 400, gas: 0 }, ondas: { primeira: 120, intervalo: 60, min: 30, mult: 1.15 },
+  tech: null, objetivo: { tipo: 'sobrevivencia' },
+};
+export const survivalScore = s => s.swarm.wave * 100 + s.stats.abatidos * 5 + Math.floor(s.tick / 20);
+
 export const CHARACTERS = {
   varela: { nome: 'Capitã Varela', retrato: 'capitao' },
   kesh: { nome: 'Kesh, engenheiro zorrin', retrato: 'kesh' },
@@ -79,11 +87,12 @@ export const MISSIONS = [
     objetivoTxt: 'Destrói o portal assinalado.',
     cfg: { w: 40, h: 28, portais: 2, base: true, unidades: [['assalto', 6]], recursos: { cristal: 400, gas: 100 },
            ondas: { primeira: 140, intervalo: 80, min: 50, mult: 1 }, objetivo: { tipo: 'destruir' } },
-    recompensa: ['antitanque', 'granadeiro', 'sniper'],
+    recompensa: ['antitanque', 'granadeiro', 'sniper', 'orbital'],
     briefing: [
       ['kesh', 'Os portais não são naturais. Alguma coisa os está a abrir por baixo da crosta.'],
       ['varela', 'O maior está na cratera. Destruam-no e vejamos o que acontece.'],
       ['kesh', 'Investiguei uns lança-foguetes: os Antitanque furam a carapaça dos Brutos.'],
+      ['varela', 'E a nave-mãe já tem órbita estável. Depois desta missão, podem pedir bombardeamentos.'],
     ],
     vitoria: [['kesh', 'Quando o portal caiu, todos os outros tremeram. Estão ligados a um centro.'], ['varela', 'Um ninho. Antes de lá chegar, temos de aguentar o contra-ataque.']],
   },

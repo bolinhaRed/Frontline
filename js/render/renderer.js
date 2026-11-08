@@ -1,5 +1,5 @@
 // Desenho do mundo: lê o estado, nunca o altera.
-import { CELL, tileOriginX, tileOriginY, centerX, centerY, HEX_W, ROW_H } from '../sim/hex.js';
+import { CELL, tileOriginX, tileOriginY, centerX, centerY, HEX_W, ROW_H, range } from '../sim/hex.js';
 import { idx } from '../sim/map.js';
 import { offsetX, offsetY } from './camera.js';
 import { TERRAIN } from '../data/terrain.js';
@@ -45,7 +45,8 @@ export function render(R, state, cam, ui, alpha, now) {
     byRow.get(row).push({ u, x: ix, y: iy, kind });
   };
   for (const u of state.units) put(u, 'u');
-  for (const e of state.enemies) if (seen[idx(m, e.c, e.r)] === 2) put(e, 'e');
+  const air = [];
+  for (const e of state.enemies) if (seen[idx(m, e.c, e.r)] === 2) (ENEMIES[e.type].aereo ? air.push(e) : put(e, 'e'));
 
   const building = ui.mode === 'build' && ui.buildType;
   const terr = building ? territory(state) : null;
@@ -63,6 +64,12 @@ export function render(R, state, cam, ui, alpha, now) {
         if (md.fase === 'obra') { drawTile(R, A.atlas, m.v[i], ox, oy); g.globalAlpha = 0.5; }
         drawTile(R, img, TERRAIN.modulos[md.type], ox, oy);
         g.globalAlpha = 1;
+        // módulo com menos de metade da vida: mais escuro e a soltar faíscas
+        if (md.fase === 'ativo' && md.hp < MODULES[md.type].vida * 0.5) {
+          g.globalAlpha = md.hp < MODULES[md.type].vida * 0.25 ? 0.55 : 0.35; drawTile(R, A.atlasDark, TERRAIN.modulos[md.type], ox, oy); g.globalAlpha = 1;
+          const tk = (now / 90) | 0;
+          if ((tk + md.id * 7) % 6 < 3) g.drawImage(A.hit, ((tk + md.id * 7) % 6) * 16, 0, 16, 16, ox + 4 + (md.id * 5) % 12, oy + 2 + (md.id * 3) % 8, 16, 16);
+        }
         if (ui.module === md.id) g.drawImage(A.outlines.select, ox, oy);
       } else {
         drawTile(R, f === 2 ? A.atlas : A.atlasDark, m.v[i], ox, oy);
@@ -84,6 +91,28 @@ export function render(R, state, cam, ui, alpha, now) {
     for (const pt of state.portals) if (pt.r === r && seen[idx(m, pt.c, pt.r)]) drawPortal(R, pt, now, seen[idx(m, pt.c, pt.r)] === 2);
     if (list) for (const it of list) it.kind === 'u' ? (UNITS[it.u.type].classe === 'inf' ? drawSoldier(R, it, now, state.tick + alpha) : UNITS[it.u.type].classe === 'civil' ? drawColono(R, it, now) : drawMech(R, it, now)) : drawEnemy(R, it, now, state.tick + alpha);
     for (const md of state.modules) if (md.r === r && md.fase === 'obra' && md.t < 12) drawDust(R, md);
+  }
+  // Insetos voadores: sombra no chão e o bicho 10 px acima
+  for (const e of air) {
+    const x = Math.round(e.px + (e.x - e.px) * alpha), y = Math.round(e.py + (e.y - e.py) * alpha);
+    g.globalAlpha = 0.35; g.fillStyle = '#000'; g.fillRect(x - 5, y + 1, 10, 2); g.fillRect(x - 3, y, 6, 4); g.globalAlpha = 1;
+    drawEnemy(R, { u: e, x, y: y - 10 }, now, state.tick + alpha);
+  }
+  // Bombardeamento orbital: hexes a piscar e a nave-mãe a descer até ao alvo
+  for (const a of state.orbital.alvos) {
+    const k = Math.max(0, Math.min(1, 1 - (a.t - state.tick - alpha) / 40));
+    if (Math.floor(now / 150) % 2) for (const p of range(a, 1)) g.drawImage(A.outlines.bad, tileOriginX(p.c, p.r), tileOriginY(p.c, p.r));
+    g.drawImage(A.nave, Math.round(centerX(a.c, a.r)) - 24, Math.round(centerY(a.c, a.r) - 40 - (1 - k) * 90), 48, 48);
+  }
+  if (ui.mode === 'orbital' && ui.hover) for (const p of range(ui.hover, 1)) g.drawImage(A.outlines.bad, tileOriginX(p.c, p.r), tileOriginY(p.c, p.r));
+  // Ponto de encontro do módulo selecionado
+  const selMd = ui.module && state.modules.find(md => md.id === ui.module);
+  if (selMd && selMd.rally) {
+    const a = { x: centerX(selMd.c, selMd.r), y: centerY(selMd.c, selMd.r) }, b = { x: centerX(selMd.rally.c, selMd.rally.r), y: centerY(selMd.rally.c, selMd.rally.r) };
+    g.fillStyle = 'rgba(125,255,154,0.8)';
+    const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 6));
+    for (let i = 1; i < n; i++) g.fillRect(Math.round(a.x + (b.x - a.x) * i / n) - 1, Math.round(a.y + (b.y - a.y) * i / n) - 1, 2, 2);
+    g.drawImage(A.outlines.ok, tileOriginX(selMd.rally.c, selMd.rally.r), tileOriginY(selMd.rally.c, selMd.rally.r));
   }
   // Bandeiras de objetivo (Robot Warfare): destino, portal a destruir ou zona de evacuação
   const M = state.mission, flags = [];
@@ -117,7 +146,7 @@ export function render(R, state, cam, ui, alpha, now) {
     g.fillStyle = f > 0.5 ? '#6fe08a' : f > 0.25 ? '#ffd25a' : '#ff6b5a'; g.fillRect(x, y, Math.max(1, Math.round(w * f)), 2);
   };
   for (const u of state.units) hpBar('u', u, Math.round(u.px + (u.x - u.px) * alpha) - 6, Math.round(u.py + (u.y - u.py) * alpha) - (UNITS[u.type].classe === 'inf' ? 15 : 16), 12, ui.selected.has(u.id));
-  for (const e of state.enemies) if (seen[idx(m, e.c, e.r)] === 2) hpBar('e', e, Math.round(e.px + (e.x - e.px) * alpha) - 6, Math.round(e.py + (e.y - e.py) * alpha) - (e.type === 'bruto' ? 24 : 18), 12, false);
+  for (const e of state.enemies) if (seen[idx(m, e.c, e.r)] === 2) hpBar('e', e, Math.round(e.px + (e.x - e.px) * alpha) - 6, Math.round(e.py + (e.y - e.py) * alpha) - (e.type === 'bruto' ? 24 : ENEMIES[e.type].aereo ? 30 : 18), 12, false);
   for (const md of state.modules) if (md.fase === 'ativo') hpBar('m', md, Math.round(centerX(md.c, md.r)) - 10, tileOriginY(md.c, md.r) + 3, 20, ui.module === md.id);
   for (const pt of state.portals) if (seen[idx(m, pt.c, pt.r)] === 2) hpBar('p', pt, Math.round(centerX(pt.c, pt.r)) - 10, tileOriginY(pt.c, pt.r) - 30, 20, false);
 

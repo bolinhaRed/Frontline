@@ -1,8 +1,6 @@
-# Frontline — versão 1.0
+# Frontline — versão 1.3
 
 RTS em pixel art com mapa hexagonal. HTML, CSS e JavaScript puros, sem dependências.
-
-https://bolinhared.github.io/Frontline/
 
 ## Como abrir
 
@@ -10,6 +8,14 @@ https://bolinhared.github.io/Frontline/
 - **Depois de mudar ficheiros:** corre `node tools/build_sw.mjs` para atualizar a lista do modo offline (senão o browser continua a usar a versão antiga guardada).
 - **No computador:** os módulos JavaScript não abrem com duplo clique (`file://`). Corre um servidor local na pasta, por exemplo `python -m http.server`, e abre `http://localhost:8000`.
 - **Sem servidor:** `dist/frontline.html` é a mesma versão num único ficheiro, com as imagens embutidas.
+
+## Novidades da 1.3
+
+Bombardeamento orbital da nave-mãe (O), modo Sobrevivência com recorde, opções na escaramuça (tamanho do mapa, portais, recursos), Enxame mais esperto (escolhe alvos fracos, divide vagas grandes e recua quando perde) e módulos danificados com aspeto próprio.
+
+## Novidades da 1.1
+
+Níveis de dificuldade, ponto de encontro no Quartel e no Hangar, saltar para o ataque (Espaço ou tocar no aviso, com aviso no minimapa), dicas na primeira partida e insetos voadores (Vespa e Besouro blindado).
 
 ## Publicar no GitHub Pages
 

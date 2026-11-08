@@ -8,8 +8,8 @@ const bundle = execFileSync(esbuild, ['js/main.js', '--bundle', '--format=iife',
 const uri = p => 'data:image/png;base64,' + readFileSync(p).toString('base64');
 const assets = {
   atlas: 'assets/tiles/hex_atlas.png', walk1: 'assets/units/Walk1.png', walk2: 'assets/units/Walk2.png', walk3: 'assets/units/Walk3.png',
-  arma1: 'assets/units/armas/1.png', mechSmall: 'assets/units/mech_small.png', mechSmall_3: 'assets/units/mech_small_3.png', mechSmall_4: 'assets/units/mech_small_4.png', mechSmall_6: 'assets/units/mech_small_6.png', portal: 'assets/fx/Portal1_Idle.png', target: 'assets/fx/Target.png', pod: 'assets/fx/DropPod1.png', dust: 'assets/fx/Dust.png',
-  alienSD: 'assets/enemies/alien_sd_small.png', alienSU: 'assets/enemies/alien_su_small.png', larva: 'assets/enemies/larva.png', bruto: 'assets/enemies/bruto.png',
+  arma1: 'assets/units/armas/1.png', mechSmall: 'assets/units/mech_small.png', mechSmall_3: 'assets/units/mech_small_3.png', mechSmall_4: 'assets/units/mech_small_4.png', mechSmall_6: 'assets/units/mech_small_6.png', portal: 'assets/fx/Portal1_Idle.png', target: 'assets/fx/Target.png', pod: 'assets/fx/DropPod1.png', nave: 'assets/fx/nave.png', dust: 'assets/fx/Dust.png',
+  alienSD: 'assets/enemies/alien_sd_small.png', alienSU: 'assets/enemies/alien_su_small.png', larva: 'assets/enemies/larva.png', bruto: 'assets/enemies/bruto.png', vespa: 'assets/enemies/vespa.png', besouro: 'assets/enemies/besouro.png',
   boomS: 'assets/fx/explosao_peq.png', boomL: 'assets/fx/explosao_grande.png', hit: 'assets/fx/impacto.png', bala: 'assets/fx/tiro_mech.png', balaTorre: 'assets/fx/tiro_torre.png',
   rwBala: 'assets/fx/rw_balas.png', rwGranada: 'assets/fx/rw_granada.png', rwRocket: 'assets/fx/rw_rocket.png',
   inf_assalto: 'assets/infantry/assalto.png', inf_metralhador: 'assets/infantry/metralhador.png', inf_granadeiro: 'assets/infantry/granadeiro.png',

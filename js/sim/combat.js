@@ -4,7 +4,7 @@ import { centerX, centerY, distance, range } from './hex.js';
 import { idx, setT, T } from './map.js';
 import { UNITS, stat } from '../data/units.js';
 import { ENEMIES, PORTAL } from '../data/enemies.js';
-import { MODULES } from '../data/modules.js';
+import { MODULES, ORBITAL } from '../data/modules.js';
 import { log, ev } from './log.js';
 
 const LIST = { u: 'units', e: 'enemies', m: 'modules', p: 'portals' };
@@ -12,17 +12,19 @@ export const get = (s, ref) => ref ? s[LIST[ref.k]].find(x => x.id === ref.id) |
 export const posOf = (k, ent) => (k === 'm' || k === 'p') ? { x: centerX(ent.c, ent.r), y: centerY(ent.c, ent.r) - 4 } : { x: ent.x, y: ent.y - 2 };
 export function maxHp(k, ent) {
   if (k === 'u') return UNITS[ent.type].vida;
-  if (k === 'e') return ENEMIES[ent.type].vida;
+  if (k === 'e') return ent.maxHp || ENEMIES[ent.type].vida;
   if (k === 'm') return MODULES[ent.type].vida;
   return PORTAL.vida;
 }
 const armorOf = (s, k, ent) => k === 'u' ? stat(s, ent.type, 'armadura') : k === 'e' ? ENEMIES[ent.type].armadura : k === 'm' ? (MODULES[ent.type].armadura || 0) : 0;
 
 // Alvo hostil mais próximo dentro de um raio (em hexes). side 'colonia' procura Enxame e vice-versa.
-export function nearestHostile(s, from, radius, side) {
+// canAir: false para unidades que não acertam em insetos voadores
+export function nearestHostile(s, from, radius, side, canAir = true) {
   const lists = side === 'colonia' ? [['e', s.enemies], ['p', s.portals]] : [['u', s.units], ['m', s.modules]];
   let best = null, bd = radius + 1;
   for (const [k, arr] of lists) for (const ent of arr) {
+    if (!canAir && k === 'e' && ENEMIES[ent.type].aereo) continue;
     const d = distance(from, ent);
     if (d < bd || (d === bd && best && ent.id < best.ent.id)) { bd = d; best = { ref: { k, id: ent.id }, ent }; }
   }
@@ -34,6 +36,7 @@ export function fx(s, k, x, y, extra) { s.fx.push(Object.assign({ k, x: Math.rou
 export function damage(s, ref, amount, src, opts) {
   const ent = get(s, ref);
   if (!ent) return;
+  if (ref.k === 'p' && s.cfg.objetivo.tipo === 'sobrevivencia') return;      // portais invulneráveis na Sobrevivência
   ent.hp -= Math.max(1, amount - (opts && opts.perfura ? 0 : armorOf(s, ref.k, ent)));
   ent.hitT = s.tick;
   if (ref.k === 'u' || ref.k === 'm') { s.alert = { t: s.tick, c: ent.c, r: ent.r }; ev(s, 'ataque', ent.x || 0, ent.y || 0); }
@@ -97,6 +100,20 @@ export function shotsStep(s) {
     }
   }
   while (s.fx.length && s.tick - s.fx[0].t > 40) s.fx.shift();
+}
+
+export function orbitalStep(s) {
+  const O = s.orbital;
+  for (let i = O.alvos.length - 1; i >= 0; i--) {
+    const a = O.alvos[i];
+    if (s.tick < a.t) continue;
+    O.alvos.splice(i, 1);
+    const area = range(a, ORBITAL.raio);
+    for (const p of area) fx(s, 'boomL', centerX(p.c, p.r), centerY(p.c, p.r) - 2);
+    ev(s, 'explosao_grande', centerX(a.c, a.r), centerY(a.c, a.r));
+    for (const e of s.enemies.slice()) if (area.some(p => p.c === e.c && p.r === e.r)) damage(s, { k: 'e', id: e.id }, ORBITAL.dano, null, { perfura: true });
+    for (const pt of s.portals.slice()) if (area.some(p => p.c === pt.c && p.r === pt.r)) damage(s, { k: 'p', id: pt.id }, ORBITAL.dano / 2, null, { perfura: true });
+  }
 }
 
 export function towersStep(s) {

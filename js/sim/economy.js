@@ -1,12 +1,12 @@
 // Economia, construção e tecnologia: território, energia, população, cristal e gás,
 // drop pods, produção no Quartel e no Hangar e investigação no Laboratório.
-import { MODULES, POD_TICKS, QUEUE_MAX } from '../data/modules.js';
+import { MODULES, POD_TICKS, QUEUE_MAX, ORBITAL } from '../data/modules.js';
 import { UNITS } from '../data/units.js';
 import { RESEARCH } from '../data/research.js';
 import { TICK_HZ } from '../core/loop.js';
 import { range, neighbors, centerX, centerY, distance } from './hex.js';
 import { inBounds, idx, getT, T, terrainDef, moveCost } from './map.js';
-import { createUnit } from './units.js';
+import { createUnit, orderMove } from './units.js';
 import { log, ev } from './log.js';
 export { log };
 
@@ -42,6 +42,23 @@ export function missing(s, req) {
 const pay = (s, d) => { s.res.cristal -= d.custo || 0; s.res.gas -= d.gas || 0; };
 const refund = (s, d) => { s.res.cristal += d.custo || 0; s.res.gas += d.gas || 0; };
 const short = (s, d) => s.res.cristal < (d.custo || 0) ? 'Cristal insuficiente' : s.res.gas < (d.gas || 0) ? 'Gás insuficiente' : null;
+
+// --- Apoio orbital ---
+export function canOrbital(s, c, r) {
+  if (!allowed(s, 'orbital') || !s.modules.some(m => m.type === 'nucleo')) return 'Sem ligação à nave-mãe';
+  if (s.tick < s.orbital.pronto) return `A nave-mãe está a recarregar (${Math.ceil((s.orbital.pronto - s.tick) / TICK_HZ)} s)`;
+  if (s.res.cristal < ORBITAL.custo) return 'Cristal insuficiente';
+  if (c !== undefined && !inBounds(s.map, c, r)) return 'Fora do mapa';
+  return null;
+}
+export function orderOrbital(s, c, r) {
+  const why = canOrbital(s, c, r);
+  if (why) { log(s, why); return; }
+  s.res.cristal -= ORBITAL.custo;
+  s.orbital.pronto = s.tick + ORBITAL.recarga * TICK_HZ;
+  s.orbital.alvos.push({ c, r, t: s.tick + ORBITAL.atraso });
+  ev(s, 'pod_queda', centerX(c, r), centerY(c, r));
+}
 
 // --- Construção ---
 export function canBuild(s, type, c, r) {
@@ -176,7 +193,8 @@ export function economyStep(s) {
     for (let d = 1; d <= 3 && !spot; d++) spot = range(md, d).find(n => distance(n, md) === d && inBounds(m, n.c, n.r) && moveCost(m, n.c, n.r) && !busy(n));
     if (!spot) { md.bloqueado = true; continue; }
     md.bloqueado = false;
-    createUnit(s, md.fila.shift(), spot.c, spot.r);
+    const nu = createUnit(s, md.fila.shift(), spot.c, spot.r);
+    if (md.rally) orderMove(s, nu, md.rally);                 // ponto de encontro
     md.prog = 0;
     s.pop.used += UNITS[it].pop;
     log(s, `${UNITS[it].nome} pronto`);

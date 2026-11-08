@@ -3,7 +3,9 @@ import { terrainDef, getT, inBounds } from '../sim/map.js';
 import { UNITS } from '../data/units.js';
 import { MODULES, BUILD_ORDER } from '../data/modules.js';
 import { RESEARCH, RESEARCH_ORDER } from '../data/research.js';
-import { missing, allowed, canTrain, canResearch, queueProgress } from '../sim/economy.js';
+import { missing, allowed, canTrain, canResearch, queueProgress, canOrbital } from '../sim/economy.js';
+import { ORBITAL } from '../data/modules.js';
+import { survivalScore } from '../data/campaign.js';
 import { TERRAIN } from '../data/terrain.js';
 import { TICK_HZ } from '../core/loop.js';
 import { ENEMIES, PORTAL } from '../data/enemies.js';
@@ -32,6 +34,7 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
     return [type, b];
   });
   $('btn-build').onclick = () => input.toggleBuildMenu();
+  $('btn-orbital').onclick = () => input.startOrbital();
   // Ações do módulo selecionado (Quartel, Hangar, Laboratório), recriadas só quando mudam
   let actionsKey = '';
   const cost = d => `${d.custo}${d.gas ? ' +' + d.gas + 'g' : ''}`;
@@ -39,7 +42,7 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
     const d = MODULES[md.type], items = [];
     if (d.produz) for (const t of d.produz) if (allowed(s, t)) { const u = UNITS[t]; items.push({ k: 'u', id: t, nome: u.nome, cost: cost(u), why: canTrain(s, md, t), desc: u.desc }); }
     if (d.pesquisa) for (const id of RESEARCH_ORDER) if (allowed(s, id) && !s.tech.done.includes(id)) { const r = RESEARCH[id]; items.push({ k: 'r', id, nome: r.nome, cost: cost(r), why: canResearch(s, md, id), desc: r.desc }); }
-    const key = md.id + '|' + md.fila.length + '|' + items.map(i => i.id + ':' + (i.why || '')).join(',');
+    const key = md.id + '|' + md.fila.length + '|' + ui.mode + '|' + !!md.rally + '|' + items.map(i => i.id + ':' + (i.why || '')).join(',');
     if (key === actionsKey) return;
     actionsKey = key;
     const box = $('mod-actions');
@@ -51,10 +54,14 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
       b.onclick = () => it.k === 'u' ? input.train(it.id) : input.research(it.id);
       return b;
     }));
+    if (d.produz) { const r = document.createElement('button'); r.type = 'button'; r.className = ui.mode === 'rally' ? 'on' : '';
+      r.innerHTML = `<span>Ponto de encontro<br><small>${md.rally ? 'Toca noutro hex para mudar' : 'Para onde vão as unidades novas'}</small></span>`; r.onclick = () => input.startRally(); box.append(r); }
     if (md.fila.length) { const c = document.createElement('button'); c.type = 'button'; c.textContent = 'Cancelar o último da fila'; c.onclick = () => input.cancelTrain(); box.append(c); }
   }
   let toastTimer = null, lastLog = 0, lastAlert = -1;
-  const toast = txt => { const t = $('toast'); t.textContent = txt; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600); };
+  const toast = (txt, isAlert) => { const t = $('toast'); t.textContent = txt; t.hidden = false; t.classList.toggle('alerta', !!isAlert); clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, isAlert ? 4000 : 2600); };
+  $('toast').onclick = () => { if ($('toast').classList.contains('alerta')) { actions.jumpAlert(); $('toast').hidden = true; } };
+  $('tip-close').onclick = () => { $('tip').hidden = true; };
   $('zoom-in').onclick = () => actions.zoom(1);
   $('zoom-out').onclick = () => actions.zoom(-1);
   $('btn-menu').onclick = () => actions.pause();
@@ -76,6 +83,7 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
   $('end-alt').onclick = () => actions.endAlt();
   $('btn-all').onclick = () => input.selectAll();
   $('btn-box').onclick = () => input.toggleBoxMode();
+  $('info-close').onclick = () => input.clear();
   window.addEventListener('keydown', e => { if (e.key === 'F2' || e.key === '`') { ui.debug = !ui.debug; $('debug').hidden = !ui.debug; } });
 
   // Grupos 1–5: toque curto seleciona (duas vezes centra), toque longo guarda a seleção
@@ -118,6 +126,9 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
     $('zoom-level').textContent = `${(cam.s / cam.dpr).toFixed(cam.s % cam.dpr ? 1 : 0)}×`;
     // Recursos (missões sem base não têm economia)
     $('res').hidden = !s.cfg.base; $('btn-build').hidden = !s.cfg.base;
+    const orbOk = allowed(s, 'orbital') && s.modules.some(m => m.type === 'nucleo'), espera = Math.ceil((s.orbital.pronto - s.tick) / TICK_HZ);
+    $('btn-orbital').hidden = !orbOk;
+    if (orbOk) { $('btn-orbital').firstChild.textContent = espera > 0 ? `Orbital ${espera}s ` : 'Orbital '; $('btn-orbital').disabled = espera > 0; $('btn-orbital').classList.toggle('on', ui.mode === 'orbital'); }
     $('r-cristal').textContent = Math.floor(s.res.cristal);
     $('r-gas').textContent = Math.floor(s.res.gas);
     $('r-energia').textContent = `${s.power.prod}/${s.power.cons}`;
@@ -160,16 +171,16 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
       : M.tipo === 'defender' ? `Defende a plataforma mais ${mmss(rest)}`
       : M.tipo === 'escoltar' ? `Colonos a salvo ${M.salvos}/${M.minimo} · vivos ${s.units.filter(u => u.type === 'colono').length}`
       : M.tipo === 'destruir' ? 'Destrói o portal da bandeira'
+      : M.tipo === 'sobrevivencia' ? `Vaga ${s.swarm.wave} · ${survivalScore(s)} pontos`
       : `Portais por destruir: ${s.portals.length}`;
     $('r-wave').classList.toggle('warn', left <= 15);
-    if (s.alert && s.alert.t !== lastAlert && s.tick - s.alert.t < 5 && (lastAlert < 0 || s.alert.t - lastAlert > 15 * TICK_HZ)) { toast('A base está a ser atacada'); lastAlert = s.alert.t; }
+    if (s.alert && s.alert.t !== lastAlert && s.tick - s.alert.t < 5 && (lastAlert < 0 || s.alert.t - lastAlert > 15 * TICK_HZ)) { toast('A base está a ser atacada · toca para ir lá', true); lastAlert = s.alert.t; }
     $('end').hidden = !s.result;
     if (s.result) {
       $('end-title').textContent = s.result === 'vitoria' ? 'Vitória' : 'Derrota';
       const [lp, la] = actions.endLabels(s.result); $('end-new').textContent = lp; $('end-alt').textContent = la;
       const min = Math.floor(s.tick / TICK_HZ / 60), sec = Math.floor(s.tick / TICK_HZ) % 60;
-      $('end-text').textContent = actions.endText(s.result)
-        + ` Tempo ${min}:${String(sec).padStart(2, '0')} · vagas ${s.swarm.wave} · insetos abatidos ${s.stats.abatidos} · mechs perdidos ${s.stats.perdidos}.`;
+      $('end-text').textContent = actions.endText(s.result);
     }
     $('btn-box').classList.toggle('on', !!ui.boxMode);
     for (const b of groupsEl.children) {
@@ -178,7 +189,14 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
       b.classList.toggle('empty', !cnt);
     }
     renderIcons(sel);
-    if (ui.mode === 'build') {
+    $('info-close').hidden = !(sel.length || md);
+    if (ui.mode === 'orbital') {
+      $('info-title').textContent = `${ORBITAL.nome} · ${ORBITAL.custo} cristais`;
+      $('info-body').textContent = 'Toca no hex onde deve cair. Atinge também os 6 hexes à volta, 2 s depois.';
+    } else if (ui.boxMode) {
+      $('info-title').textContent = 'Seleção em área';
+      $('info-body').textContent = 'Arrasta um dedo para desenhar um retângulo à volta das tropas.';
+    } else if (ui.mode === 'build') {
       const d = MODULES[ui.buildType];
       $('info-title').textContent = `Construir ${d.nome} · ${d.custo} cristais`;
       $('info-body').textContent = d.sobre === 'cristal' ? 'Toca num hex de cristais dentro do território.' : d.sobre === 'geiser' ? 'Toca num géiser dentro do território.' : 'Toca num hex livre dentro do território. Esc ou botão direito cancela.';
@@ -204,7 +222,7 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
       }
       $('info-body').textContent = t;
     } else if (ui.mode) {
-      $('info-title').textContent = ui.mode === 'move' ? 'Escolhe o destino' : ui.mode === 'attack' ? 'Escolhe o alvo ou o ponto de ataque' : 'Escolhe o fim da patrulha';
+      $('info-title').textContent = ui.mode === 'move' ? 'Escolhe o destino' : ui.mode === 'attack' ? 'Escolhe o alvo ou o ponto de ataque' : ui.mode === 'rally' ? 'Escolhe o ponto de encontro' : 'Escolhe o fim da patrulha';
       $('info-body').textContent = 'Toca ou clica num hex. Botão direito ou Esc cancela.';
     } else if (sel.length === 1) {
       const u = sel[0];
@@ -225,16 +243,17 @@ export function createHud({ cam, ui, getState, actions, input, iconUrls, atlas, 
         const t = terrainDef(getT(s.map, h.c, h.r));
         const portal = s.portals.find(q => q.c === h.c && q.r === h.r);
         const bug = s.fog.seen[i] === 2 && s.enemies.find(e => e.c === h.c && e.r === h.r);
-        if (portal) { $('info-title').textContent = PORTAL.nome; $('info-body').textContent = `Vida ${Math.ceil(portal.hp)}/${PORTAL.vida} · gera as vagas. Destrói todos para ganhar.`; return; }
-        if (bug) { $('info-title').textContent = ENEMIES[bug.type].nome; $('info-body').textContent = `Vida ${Math.ceil(bug.hp)}/${ENEMIES[bug.type].vida} · dano ${ENEMIES[bug.type].dano}`; return; }
+        if (portal) { $('info-title').textContent = PORTAL.nome; $('info-body').textContent = s.cfg.objetivo.tipo === 'sobrevivencia' ? 'Invulnerável na Sobrevivência: as vagas não param.' : `Vida ${Math.ceil(portal.hp)}/${PORTAL.vida} · gera as vagas. Destrói todos para ganhar.`; return; }
+        if (bug) { $('info-title').textContent = ENEMIES[bug.type].nome; $('info-body').textContent = `Vida ${Math.ceil(bug.hp)}/${bug.maxHp || ENEMIES[bug.type].vida} · dano ${ENEMIES[bug.type].dano}${ENEMIES[bug.type].aereo ? ' · voa' : ''}`; return; }
         $('info-title').textContent = t.nome;
         const mov = portal || t.custo === 0 ? 'Intransitável' : t.custo === 1 ? 'Movimento normal' : 'Movimento lento';
         $('info-body').textContent = mov + (t.bloqueiaVisao ? ' · tapa a visão' : '');
       }
-    } else { $('info-title').textContent = 'Nenhuma seleção'; $('info-body').textContent = 'Toca numa unidade ou arrasta para selecionar várias.'; }
+    } else { $('info-title').textContent = 'Nenhuma seleção'; $('info-body').textContent = 'Toca nas tropas para as juntar, ou usa Selecionar área.'; }
   }
   return {
     update, toast,
+    tip(txt) { $('tip-text').textContent = txt; $('tip').hidden = false; clearTimeout(this._tipT); this._tipT = setTimeout(() => { $('tip').hidden = true; }, 12000); },
     debug(fps, renderer) { if (ui.debug) $('debug').textContent = `${fps.toFixed(0)} fps · tick ${getState().tick} · ${renderer.stats.tiles} hexes desenhados · zoom ${cam.s}`; },
   };
 }

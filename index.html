@@ -44,6 +44,7 @@
 </div>
 
 <div class="hud bottom-left panel" id="info" aria-live="polite">
+  <button id="info-close" class="icon info-close" type="button" aria-label="Largar a seleção" hidden><img data-gw="icon_close" alt=""></button>
   <strong id="info-title">Nenhuma seleção</strong>
   <span id="info-body">Toca numa unidade ou arrasta para selecionar várias.</span>
   <div id="sel-icons" class="sel-icons" hidden></div>
@@ -60,8 +61,9 @@
 <div class="hud bottom-right">
   <div id="groups" class="groups panel" role="group" aria-label="Grupos"></div>
   <div class="panel tools">
+    <button id="btn-orbital" type="button">Orbital <kbd>O</kbd></button>
     <button id="btn-build" type="button">Construir <kbd>B</kbd></button>
-    <button id="btn-box" type="button"><span class="long">Seleção em área</span><span class="short">Área</span></button>
+    <button id="btn-box" type="button"><span class="long">Seleção em área</span><span class="short">Selecionar área</span></button>
     <button id="btn-all" type="button">Todos</button>
   </div>
 </div>
@@ -83,6 +85,8 @@
   </div>
 </div>
 
+<div id="tip" class="hud tip panel" hidden role="status"><span id="tip-text"></span><button id="tip-close" type="button">OK</button></div>
+
 <div id="toast" class="toast" aria-live="polite" hidden></div>
 
 <div id="debug" class="hud debug panel" hidden></div>
@@ -97,10 +101,11 @@
       <p><b>M</b> mover · <b>A</b> atacar (num alvo, ou num hex para avançar a combater) · <b>H</b> manter posição · <b>S</b> parar · <b>P</b> patrulhar · <b>Esc</b> cancela.</p>
       <p><b>Shift + 1 a 9</b> guarda um grupo; <b>1 a 9</b> seleciona-o; duas vezes seguidas centra a câmara.</p>
       <p><b>Setas</b>, <b>botão do meio</b> ou <b>Espaço + arrastar</b> movem a câmara; <b>roda</b> ou <b>+ −</b> fazem zoom; <b>Ctrl + A</b> seleciona todos.</p>
+      <p><b>O</b> pede um bombardeamento orbital (100 cristais, recarga de 90 s). <b>Espaço</b> salta para o último ataque à base. Com o Quartel ou o Hangar selecionado, o <b>botão direito</b> define o ponto de encontro.</p>
     </section>
     <section>
       <h3>Toque</h3>
-      <p><b>Toca</b> num mech para o selecionar e toca num hex para o enviar, ou num inseto para o atacar. Toca de novo no mech para largar.</p>
+      <p><b>Toca</b> numa tropa para a selecionar; <b>toca noutras</b> para as juntar (ou retirar); <b>dois toques</b> seleciona todas as do mesmo tipo à vista. Depois toca num hex para as enviar, ou num inseto para atacar. O <b>✕</b> no painel larga a seleção; tocar num edifício seleciona-o.</p>
       <p><b>Seleção em área</b>: liga o botão e arrasta um retângulo com um dedo.</p>
       <p><b>Grupos 1 a 5</b>: toque longo guarda a seleção, toque curto seleciona, dois toques centram.</p>
       <p><b>Um dedo</b> move a câmara; <b>dois dedos</b> movem e fazem zoom.</p>
@@ -120,7 +125,9 @@
     <h2>Pausa</h2>
     <div class="col-buttons">
       <button id="p-resume" type="button">Retomar</button>
-      <button id="p-music" type="button">Música: ligada</button>
+      <button id="p-music" class="vol" type="button"></button>
+      <button id="p-sfx" class="vol" type="button"></button>
+      <button id="p-tips" type="button"></button>
       <button id="p-save" type="button">Gravar e sair</button>
       <button id="p-restart" type="button">Recomeçar</button>
       <button id="p-quit" type="button">Sair para o título sem gravar</button>
@@ -160,6 +167,22 @@
   </div>
 </div>
 
+<div id="screen-skirmish" class="screen stars" hidden>
+  <div class="title-box">
+    <div class="panel sk-box">
+      <h2>Escaramuça</h2>
+      <p>Destrói todos os portais do Enxame com a árvore de tecnologia completa.</p>
+      <div class="col-buttons">
+        <button id="sk-size" type="button"></button>
+        <button id="sk-portals" type="button"></button>
+        <button id="sk-res" type="button"></button>
+        <button id="sk-start" type="button">Começar</button>
+        <button id="sk-back" type="button">Voltar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="screen-title" class="screen stars">
   <div class="title-box">
     <img id="t-planet" class="t-planet" alt="">
@@ -170,7 +193,10 @@
         <button id="t-campaign" type="button">Campanha</button>
         <button id="t-continue" type="button" hidden>Continuar partida gravada</button>
         <button id="t-skirmish" type="button">Escaramuça</button>
+        <button id="t-survival" type="button">Sobrevivência</button>
         <button id="t-help" type="button">Controlos</button>
+        <div class="vol-row"><button id="t-music" class="vol" type="button"></button><button id="t-sfx" class="vol" type="button"></button></div>
+        <div class="vol-row"><button id="t-dif" type="button"></button><button id="t-tips" type="button"></button></div>
       </div>
     </div>
   </div>

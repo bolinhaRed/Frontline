@@ -2,12 +2,13 @@
 import { generateMap } from './mapgen.js';
 import { createFog, updateFog } from './fog.js';
 import { createUnit, orderMove, updateUnit, buildOccupancy, groupDestinations } from './units.js';
-import { economyStep, placeActive, build, train, research, cancelQueue } from './economy.js';
-import { shotsStep, towersStep, get } from './combat.js';
+import { economyStep, placeActive, build, train, research, cancelQueue, orderOrbital } from './economy.js';
+import { shotsStep, towersStep, orbitalStep, get } from './combat.js';
 import { swarmStep, enemyStep, spawnEnemy } from './swarm.js';
 import { range, distance } from './hex.js';
 import { moveCost, inBounds, idx } from './map.js';
 import { TICK_HZ } from '../core/loop.js';
+import { DIFICULDADE } from '../data/enemies.js';
 
 import { SKIRMISH } from '../data/campaign.js';
 import { setupMission, objectiveStep } from './mission.js';
@@ -18,8 +19,8 @@ export const FOG_EVERY = 4;     // ticks (5 Hz a 20 Hz)
 // cfg: configuração da partida (escaramuça por omissão, ou a de uma missão da campanha)
 export function createGame(seed, cfg = SKIRMISH) {
   const s = { version: 5, seed: seed >>> 0, rng: seed >>> 0, tick: 0, nextId: 1, cfg, units: [], modules: [], modRev: 0,
-    enemies: [], portals: [], shots: [], fx: [], ev: [], alert: null, result: null,
-    swarm: { wave: 0, next: cfg.ondas ? cfg.ondas.primeira * TICK_HZ : 1e12, cfg: cfg.ondas }, stats: { abatidos: 0, perdidos: 0 },
+    enemies: [], portals: [], shots: [], fx: [], ev: [], alert: null, result: null, orbital: { pronto: 0, alvos: [] },
+    swarm: { wave: 0, next: cfg.ondas ? Math.max(30, cfg.ondas.primeira + DIFICULDADE[cfg.dif || 'normal'].atraso) * TICK_HZ : 1e12, cfg: cfg.ondas }, stats: { abatidos: 0, perdidos: 0 },
     res: { cristal: cfg.recursos.cristal, gas: cfg.recursos.gas }, tech: { done: [], allowed: cfg.tech }, power: { prod: 0, cons: 0, ratio: 1 }, pop: { used: 0, cap: 0 }, log: [] };
   s.map = generateMap(s, cfg.w, cfg.h, cfg.portais);
   s.fog = createFog(s.map);
@@ -38,6 +39,7 @@ export function step(s, commands) {
   for (const u of s.units.slice()) updateUnit(s, u, occ);
   for (const e of s.enemies.slice()) enemyStep(s, e);
   towersStep(s);
+  orbitalStep(s);
   shotsStep(s);
   swarmStep(s);
   objectiveStep(s);
@@ -47,6 +49,8 @@ export function step(s, commands) {
 
 function applyCommand(s, cmd) {
   if (cmd.type === 'build') { build(s, cmd.module, cmd.c, cmd.r); return; }
+  if (cmd.type === 'orbital') { orderOrbital(s, cmd.c, cmd.r); return; }
+  if (cmd.type === 'rally') { const md = s.modules.find(m => m.id === cmd.moduleId); if (md) md.rally = { c: cmd.c, r: cmd.r }; return; }
   if (cmd.type === 'train' || cmd.type === 'cancel' || cmd.type === 'research') {
     const md = s.modules.find(m => m.id === cmd.moduleId);
     if (cmd.type === 'train') train(s, md, cmd.unit);

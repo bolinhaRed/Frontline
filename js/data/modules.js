@@ -27,6 +27,8 @@ export const MODULES = {
 };
 export const BUILD_ORDER = ['extrator', 'reator', 'cupula', 'rele', 'quartel', 'laboratorio', 'torre', 'refinaria', 'hangar'];
 export const GAS_PER_GEYSER = 2000;
+// Apoio orbital da nave-mãe: bombardeia um hex e os 6 à volta, 2 s depois da ordem
+export const ORBITAL = { nome: 'Bombardeamento orbital', custo: 100, recarga: 90, atraso: 40, dano: 120, raio: 1 };
 export const POD_TICKS = 30;        // queda do drop pod: 1,5 s
 export const ORE_PER_HEX = 2500;    // cristal por hex de jazida
 export const QUEUE_MAX = 5;

@@ -7,7 +7,7 @@ import { RESEARCH } from '../data/research.js';
 
 const $ = id => document.getElementById(id);
 const show = (id, on) => { $(id).hidden = !on; };
-const NAMES = id => (MODULES[id] || UNITS[id] || RESEARCH[id] || { nome: id }).nome;
+const NAMES = id => id === 'orbital' ? 'Bombardeamento orbital' : (MODULES[id] || UNITS[id] || RESEARCH[id] || { nome: id }).nome;
 
 export function createScreens({ atlas, portraits, actions }) {
   const tileIcon = v => {
@@ -21,7 +21,8 @@ export function createScreens({ atlas, portraits, actions }) {
   // ---------- título ----------
   $('t-campaign').onclick = () => actions.openMap();
   $('t-continue').onclick = () => actions.continueGame();
-  $('t-skirmish').onclick = () => actions.skirmish();
+  $('t-skirmish').onclick = () => actions.skirmishOptions();
+  $('t-survival').onclick = () => actions.survival();
   $('t-help').onclick = () => $('help').toggleAttribute('hidden');
 
   // ---------- mapa estratégico ----------
@@ -76,7 +77,6 @@ export function createScreens({ atlas, portraits, actions }) {
   $('p-resume').onclick = () => actions.resume();
   $('p-save').onclick = () => actions.saveAndExit();
   $('p-restart').onclick = () => actions.restart();
-  $('p-music').onclick = () => actions.toggleMusic();
   $('p-quit').onclick = () => actions.title();
 
   return {
@@ -87,7 +87,7 @@ export function createScreens({ atlas, portraits, actions }) {
       selected = (avail || MISSIONS[MISSIONS.length - 1]).id;
       show('screen-title', false); show('screen-map', true); renderMap();
     },
-    hideAll() { show('screen-title', false); show('screen-map', false); show('pause', false); show('dialog', false); },
+    hideAll() { show('screen-title', false); show('screen-map', false); show('screen-skirmish', false); show('pause', false); show('dialog', false); },
     dialog(ls, then) { lines = ls; at = 0; done = then; show('dialog', true); renderLine(); },
     pause(on, canSave) { show('pause', on); $('p-save').hidden = !canSave; },
   };

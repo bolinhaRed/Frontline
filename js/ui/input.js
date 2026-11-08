@@ -2,7 +2,7 @@
 import { screenToWorld, panBy, zoomAt, offsetX, offsetY } from '../render/camera.js';
 import { pixelToHex } from '../sim/hex.js';
 import { inBounds } from '../sim/map.js';
-import { canBuild, moduleAt } from '../sim/economy.js';
+import { canBuild, moduleAt, canOrbital } from '../sim/economy.js';
 import { idx } from '../sim/map.js';
 
 const TAP_SLOP = 10;      // píxeis CSS antes de um toque passar a ser arrasto
@@ -67,6 +67,14 @@ export function attachInput(canvas, ctx) {
       ui.marker = { c: h.c, r: h.r, t: performance.now(), type };
       ui.mode = null; onChange();
     },
+    rally(h) {
+      if (!h || !ui.module) return;
+      queue.push({ type: 'rally', moduleId: ui.module, c: h.c, r: h.r });
+      ui.marker = { c: h.c, r: h.r, t: performance.now(), type: 'move' }; ui.mode = null;
+      ctx.sfx?.play('ordem'); onChange();
+    },
+    startOrbital() { const why = canOrbital(getState()); if (why) { ctx.toast(why); return; } ui.mode = ui.mode === 'orbital' ? null : 'orbital'; ui.buildMenu = false; onChange(); },
+    startRally() { ui.mode = ui.module ? 'rally' : null; onChange(); },
     saveGroup(n) { ui.groups[n] = [...ui.selected]; onChange(); },
     recallGroup(n) {
       const alive = new Set(getState().units.map(u => u.id));
@@ -104,24 +112,32 @@ export function attachInput(canvas, ctx) {
       onChange();
       return;
     }
+    if (ui.mode === 'rally') { api.rally(hexAt(p)); return; }
+    if (ui.mode === 'orbital') {
+      const h = hexAt(p); if (!h) return;
+      const why = canOrbital(getState(), h.c, h.r);
+      if (why) { ctx.toast(why); ui.mode = null; onChange(); return; }
+      queue.push({ type: 'orbital', c: h.c, r: h.r }); ui.mode = null; ctx.sfx?.play('ordem'); onChange(); return;
+    }
     if (ui.mode === 'attack') { const en = enemyAt(p); en ? api.attack(en) : api.order('amove', hexAt(p)); return; }
     if (ui.mode) { api.order(ui.mode, hexAt(p)); return; }
     const u = unitAt(p);
     if (u) {
       const now = performance.now();
-      if (!touch && lastClick.id === u.id && now - lastClick.t < DOUBLE_MS) {
-        // duplo clique: todos os mechs visíveis
-        const vis = getState().units.filter(o => { const q = toScreen(o); return q.x >= 0 && q.y >= 0 && q.x <= cam.w && q.y <= cam.h; });
+      if (lastClick.id === u.id && now - lastClick.t < DOUBLE_MS) {
+        // duplo toque/clique: todas as unidades do mesmo tipo à vista
+        const vis = getState().units.filter(o => { const q = toScreen(o); return o.type === u.type && q.x >= 0 && q.y >= 0 && q.x <= cam.w && q.y <= cam.h; });
         api.select(vis.map(o => o.id));
       } else if (shift) api.toggle(u.id);
-      else if (touch && ui.selected.size === 1 && ui.selected.has(u.id)) api.clear();
+      else if (touch && ui.selected.size) api.toggle(u.id);    // toque: junta ou retira da seleção
       else api.select([u.id]);
       lastClick = { t: now, id: u.id };
       return;
     }
-    if (touch && ui.selected.size) { const en = enemyAt(p); en ? api.attack(en) : api.order('move', hexAt(p)); return; }
+    // tocar num edifício seleciona-o, mesmo com tropas selecionadas
     const hh = hexAt(p), md = hh && moduleAt(getState(), hh.c, hh.r);
     if (md) { api.selectModule(md.id); return; }
+    if (touch && ui.selected.size) { const en = enemyAt(p); en ? api.attack(en) : api.order('move', hexAt(p)); return; }
     if (touch) { ui.hover = hexAt(p); onChange(); return; }
     if (!shift) api.clear();
   }
@@ -136,6 +152,7 @@ export function attachInput(canvas, ctx) {
     if (e.pointerType === 'mouse') {
       if (e.button === 2) {
         if (ui.mode) { ui.mode = null; onChange(); return; }
+        if (ui.module && !ui.selected.size) { api.rally(hexAt(p)); return; }
         const en = enemyAt(p);
         en ? api.attack(en) : api.order('move', hexAt(p));
         return;
@@ -216,7 +233,9 @@ export function attachInput(canvas, ctx) {
     else if (k === 'p') api.setMode('patrol');
     else if (k === 'a' && !(e.ctrlKey || e.metaKey)) api.setMode('attack');
     else if (k === 'h') api.hold();
+    else if (k === 'o') api.startOrbital();
     if (k === 'a' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); api.selectAll(); }
+    if (k === ' ' && !e.repeat && !pointers.size) ctx.jumpAlert && ctx.jumpAlert();
     if (k.startsWith('arrow') || k === ' ') e.preventDefault();
   });
   window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));

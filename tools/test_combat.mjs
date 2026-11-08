@@ -70,4 +70,26 @@ for (const p of range(st, 3)) if (g.units.length < 12 && distance(p, st) >= 2 &&
 for (let i = 0; i < 60; i++) { const e = spawnEnemy(g, i % 3 ? 'massa' : 'larva', { id: 700000 + i, c: st.c + 9, r: st.r - 3 + (i % 5) }, 'vaga'); e.delay = 0; }
 const t0 = performance.now(); run(g, 400); const ms = (performance.now() - t0) / 400;
 ok(ms < 4, `batalha 12 mechs × 60 insetos: ${ms.toFixed(2)} ms por tick (abatidos ${g.stats.abatidos}, mechs vivos ${g.units.length})`);
+// 8. Voadores: atravessam terreno; Granadeiro não lhes acerta, Metralhador sim; ponto de encontro
+{ const { createUnit } = await import('../js/sim/units.js');
+  const fly = (type) => { const g = calm(createGame(6)); g.units.length = 0; const st = g.map.start;
+    const u = createUnit(g, type, st.c + 2, st.r); u.hold = true;
+    const v = spawnEnemy(g, 'vespa', { id: 4000, c: u.c + 2, r: u.r }, 'parado'); v.delay = 1e9; v.c = u.c + 2; v.r = u.r; v.x = u.x + 48; v.y = u.y;
+    run(g, 100); return v.hp; };
+  ok(fly('granadeiro') === 45 && fly('metralhador') < 45, 'Granadeiro não acerta nas vespas; Metralhador acerta');
+  const g = calm(createGame(6)); g.units.length = 0;
+  const v = spawnEnemy(g, 'vespa', { id: 4001, c: g.map.start.c + 8, r: g.map.start.r }, 'vaga'); v.delay = 0;
+  run(g, 200); ok(distance(v, g.map.start) <= 2, 'vespa voa direita à base'); }
+// 9. Bombardeamento orbital, Sobrevivência e recuo das vagas
+{ const g = calm(createGame(6)); g.res.cristal = 500; const st = g.map.start;
+  const bs = [0, 1, 2].map(i => { const e = spawnEnemy(g, 'larva', { id: 5000 + i, c: st.c + 5, r: st.r }, 'parado'); e.delay = 1e9; e.c = st.c + 5; e.r = st.r; return e; });
+  step(g, [{ type: 'orbital', c: st.c + 5, r: st.r }]); run(g, 45);
+  ok(bs.every(b => !g.enemies.includes(b)) && g.res.cristal === 400, 'bombardeamento orbital arrasa o hex e cobra 100 cristais');
+  step(g, [{ type: 'orbital', c: st.c + 5, r: st.r }]); ok(g.res.cristal === 400, 'o bombardeamento tem recarga');
+  const { SURVIVAL } = await import('../js/data/campaign.js');
+  const sv = createGame(7, SURVIVAL); const { damage } = await import('../js/sim/combat.js');
+  damage(sv, { k: 'p', id: sv.portals[0].id }, 99999); ok(sv.portals.length === 2 && !sv.result, 'na Sobrevivência os portais são invulneráveis');
+  const gw = createGame(8); gw.swarm.wave = 4; gw.swarm.next = gw.tick + 1; for (let i = 0; i < 3; i++) step(gw, []);
+  const wave = gw.enemies.filter(e => e.mode === 'vaga'); for (const e of wave.slice(0, Math.ceil(wave.length * 0.7))) gw.enemies.splice(gw.enemies.indexOf(e), 1);
+  run(gw, 45); ok(gw.enemies.some(e => e.mode === 'recuar' || (e.vaga && e.mode === 'guarda')), 'uma vaga que perde 70% recua'); }
 process.exit(fails ? 1 : 0);

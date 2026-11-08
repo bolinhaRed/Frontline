@@ -1,5 +1,5 @@
 // Gerado por tools/build_sw.mjs — não editar à mão.
-const CACHE = 'frontline-4d3db622c2';
+const CACHE = 'frontline-bab759617b';
 const FILES = [
  "./",
  "index.html",
@@ -15,6 +15,7 @@ const FILES = [
  "js/data/modules.js",
  "js/data/research.js",
  "js/data/terrain.js",
+ "js/data/tips.js",
  "js/data/units.js",
  "js/main.js",
  "js/render/assets.js",
@@ -44,8 +45,10 @@ const FILES = [
  "assets/campaign/retrato_kesh.png",
  "assets/enemies/alien_sd_small.png",
  "assets/enemies/alien_su_small.png",
+ "assets/enemies/besouro.png",
  "assets/enemies/bruto.png",
  "assets/enemies/larva.png",
+ "assets/enemies/vespa.png",
  "assets/fx/Boom1.png",
  "assets/fx/Boom2.png",
  "assets/fx/DropPod1.png",
@@ -56,6 +59,7 @@ const FILES = [
  "assets/fx/explosao_grande.png",
  "assets/fx/explosao_peq.png",
  "assets/fx/impacto.png",
+ "assets/fx/nave.png",
  "assets/fx/rw_balas.png",
  "assets/fx/rw_granada.png",
  "assets/fx/rw_rocket.png",

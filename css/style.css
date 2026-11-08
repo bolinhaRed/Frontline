@@ -246,3 +246,26 @@ button.icon img, .zoom img { width: 32px; height: 32px; }
   .bm-item { min-height: 48px; grid-template-columns: 32px 1fr auto; }
   .bm-item img { width: 32px; height: 32px; }
 }
+
+/* Volume: 5 níveis (desligado, 1 a 4) */
+.vol-row { display: flex; gap: 8px; }
+.vol-row button { flex: 1; }
+.vol .bars { letter-spacing: 2px; color: var(--accent); margin-left: 6px; font-family: monospace; }
+
+.tip { top: calc(64px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+  max-width: min(560px, calc(100vw - 260px)); padding: 2px 4px 2px 10px; font-size: 13px; border-image-source: var(--gw-panel-basic); }
+.tip button { min-height: 32px; }
+.toast.alerta { cursor: pointer; color: #ff8a6b; }
+@media (max-height: 480px) { .tip { top: calc(110px + env(safe-area-inset-top, 0px)); font-size: 12px; max-width: calc(100vw - 120px); } }
+.toast { top: calc(118px + env(safe-area-inset-top, 0px)); }
+@media (max-height: 480px) { .toast { top: calc(162px + env(safe-area-inset-top, 0px)); } }
+
+.bottom-left { position: fixed; }
+.info-close { position: absolute; top: -4px; right: -4px; width: 36px !important; height: 36px !important; }
+.info-close img { width: 32px; height: 32px; }
+#info { padding-right: 34px; }
+
+.sk-box { width: min(420px, calc(100vw - 24px)); padding: 10px 16px; }
+.sk-box h2 { margin: 0 0 4px; color: var(--mars); }
+.sk-box p { color: var(--ink-2); margin: 0 0 12px; }
+body:not(.in-game) #screen-skirmish { z-index: 12; }
